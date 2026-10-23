@@ -1,2 +1,2 @@
-protocol,speed,pause,nodes,flows,area,packetSize,dataRate,txPower,seed,run,generatedPackets,txPackets,rxPackets,lostPackets,pdr,throughputMbps,delayMs,jitterMs,flowmonTxPackets,flowmonRxPackets
-AODV,10,0,20,4,500,1024,32768bps,7.5,1,1,1436,1436,772,664,53.7604,0.0702692,71.0136,40.1941,1436,772
+protocol,speed,pause,nodes,flows,area,packetSize,dataRate,txPower,seed,run,generatedPackets,txPackets,rxPackets,lostPackets,pdr,throughputMbps,delayMs,jitterMs,flowmonTxPackets,flowmonRxPackets,duplicatePackets
+AODV,10,0,20,4,500,1024,32768bps,7.5,1,1,1436,1436,1065,371,74.1643,0.0969387,41.0297,21.022,1436,1065,0
