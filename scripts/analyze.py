@@ -103,10 +103,16 @@ def save(fig, name: str, fig_dir: Path) -> None:
     plt.close(fig)
 
 
-def plot_vs_speed(summary: pd.DataFrame, fig_dir: Path) -> None:
+def plot_vs_speed(summary: pd.DataFrame, fig_dir: Path,
+                  connectivity: pd.DataFrame | None = None) -> None:
     speeds = sorted(summary["speed"].unique())
     for metric, (label, name) in METRICS.items():
         fig, ax = plt.subplots(figsize=(3.4, 2.5))
+        if metric == "pdr" and connectivity is not None:
+            limit = connectivity.groupby("speed")["connectivity"].mean()
+            limit = limit[limit.index.isin(speeds)]
+            ax.plot(limit.index, limit.values, color="#52514e", linestyle=(0, (5, 2)),
+                    marker="D", markersize=4, linewidth=1.2, label="Conectividade")
         for protocol in PROTOCOLS:
             data = summary[summary["protocol"] == protocol].sort_values("speed")
             if data.empty:
@@ -120,7 +126,10 @@ def plot_vs_speed(summary: pd.DataFrame, fig_dir: Path) -> None:
         ax.set_ylim(bottom=0)
         if metric == "pdr":
             ax.set_ylim(0, 100)
-        ax.legend(frameon=False)
+            # Canto inferior esquerdo fica livre: as curvas estão acima de ~20%.
+            ax.legend(frameon=False, loc="lower left", ncol=2, columnspacing=1)
+        else:
+            ax.legend(frameon=False)
         save(fig, name, fig_dir)
 
 
@@ -166,7 +175,11 @@ def main() -> None:
     summary = summarize(runs)
     summary.to_csv(args.processed / "resumo-estatistico.csv", index=False, float_format="%.4f")
 
-    plot_vs_speed(summary, args.figures)
+    # Limite de conectividade (scripts/connectivity.py), quando disponível
+    # na mesma pasta de dados processados.
+    connectivity_file = args.processed / "conectividade.csv"
+    connectivity = pd.read_csv(connectivity_file) if connectivity_file.exists() else None
+    plot_vs_speed(summary, args.figures, connectivity)
     plot_comparison(summary, args.comparar_velocidade, args.figures)
 
     cols = ["protocol", "speed", "n"] + [f"{m}_mean" for m in METRICS]

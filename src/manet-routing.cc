@@ -27,7 +27,8 @@
  * - mobilidade RandomWaypointMobilityModel com velocidade constante
  *   (--speed) e tempo de pausa (--pause);
  * - 4 fluxos UDP (OnOff sempre ligado) de 32768 b/s com pacotes de 1024 bytes:
- *   o nó i + flows envia para o nó i; tráfego entre 20 s e 110 s;
+ *   o nó i + flows envia para o nó i; cada fluxo começa em um instante
+ *   sorteado entre 20 s e 21 s (--startJitter) e transmite por 90 s;
  * - 120 s de simulação;
  * - roteamento AODV, OLSR ou DSDV (--protocol).
  *
@@ -58,6 +59,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <set>
 
 using namespace ns3;
 
@@ -118,6 +120,8 @@ class RoutingExperiment
     uint64_t m_appTxPackets{0};     //!< Data packets sent by the applications.
     uint64_t m_appRxPackets{0};     //!< Data packets received by the sinks.
     uint64_t m_appRxBytes{0};       //!< Data bytes received by the sinks.
+    uint64_t m_appRxDuplicates{0};  //!< Duplicate copies received (not counted).
+    std::set<uint64_t> m_rxUids;    //!< UIDs of the data packets already received.
 
     std::string m_protocolName{"AODV"}; //!< Protocol name.
     double m_speed{1.0};                //!< Node speed (m/s).
@@ -132,10 +136,13 @@ class RoutingExperiment
     uint64_t m_run{1};                  //!< RNG run number.
     double m_totalTime{120.0};          //!< Simulation time (s).
     double m_appStart{20.0};            //!< Traffic start (s).
-    double m_appStop{110.0};            //!< Traffic stop (s).
+    double m_appStop{110.0};            //!< Traffic stop (s), before the start jitter.
+    double m_startJitter{1.0};          //!< Range of the random flow start offset (s).
+    double m_arpDeadTimeout{1.0};       //!< ArpCache::DeadTimeout (s).
     std::string m_outDir{"."};          //!< Output directory.
     bool m_traceMobility{false};        //!< Enable mobility tracing.
     bool m_verbose{false};              //!< Print every received packet.
+    bool m_histograms{false};           //!< Include FlowMonitor histograms in flowmon.xml.
 };
 
 static inline std::string
@@ -164,6 +171,13 @@ RoutingExperiment::ReceivePacket(Ptr<Socket> socket)
     Address senderAddress;
     while ((packet = socket->RecvFrom(senderAddress)))
     {
+        // Conta cada pacote uma única vez: o roteamento pode entregar cópias
+        // do mesmo pacote (mesmo UID), que o FlowMonitor também desconsidera.
+        if (!m_rxUids.insert(packet->GetUid()).second)
+        {
+            m_appRxDuplicates += 1;
+            continue;
+        }
         bytesTotal += packet->GetSize();
         packetsReceived += 1;
         m_appRxPackets += 1;
@@ -224,9 +238,16 @@ RoutingExperiment::CommandSetup(int argc, char** argv)
     cmd.AddValue("txPower", "Transmission power in dBm", m_txp);
     cmd.AddValue("seed", "RNG seed (RngSeedManager::SetSeed)", m_seed);
     cmd.AddValue("run", "RNG run number (RngSeedManager::SetRun)", m_run);
+    cmd.AddValue("startJitter",
+                 "Flows start at a random time in [20, 20 + startJitter) s; 0 starts all at 20 s",
+                 m_startJitter);
+    cmd.AddValue("arpDeadTimeout",
+                 "Seconds a neighbor stays unreachable after ARP fails (ns-3 default: 100)",
+                 m_arpDeadTimeout);
     cmd.AddValue("outDir", "Directory for the output files", m_outDir);
     cmd.AddValue("traceMobility", "Enable mobility tracing", m_traceMobility);
     cmd.AddValue("verbose", "Print every received packet", m_verbose);
+    cmd.AddValue("histograms", "Include delay/jitter histograms in flowmon.xml", m_histograms);
     cmd.Parse(argc, argv);
 
     std::vector<std::string> allowedProtocols{"AODV", "OLSR", "DSDV"};
@@ -285,13 +306,13 @@ RoutingExperiment::WriteSummary(Ptr<FlowMonitor> flowmon, Ptr<Ipv4FlowClassifier
     std::ofstream out(m_outDir + "/resumo.csv");
     out << "protocol,speed,pause,nodes,flows,area,packetSize,dataRate,txPower,seed,run,"
         << "generatedPackets,txPackets,rxPackets,lostPackets,pdr,throughputMbps,delayMs,"
-        << "jitterMs,flowmonTxPackets,flowmonRxPackets" << std::endl;
+        << "jitterMs,flowmonTxPackets,flowmonRxPackets,duplicatePackets" << std::endl;
     out << m_protocolName << "," << m_speed << "," << m_pause << "," << m_nodes << ","
         << m_flows << "," << m_area << "," << m_packetSize << "," << m_dataRate << ","
         << m_txp << "," << m_seed << "," << m_run << "," << generated << ","
         << m_appTxPackets << "," << m_appRxPackets << "," << lost << "," << pdr << ","
         << throughputMbps << "," << delayMs << "," << jitterMs << "," << fmTx << "," << fmRx
-        << std::endl;
+        << "," << m_appRxDuplicates << std::endl;
     out.close();
 
     std::cout << m_protocolName << " speed=" << m_speed << " pause=" << m_pause
@@ -335,6 +356,14 @@ RoutingExperiment::Run()
 
     // Set Non-unicastMode rate to unicast mode
     Config::SetDefault("ns3::WifiRemoteStationManager::NonUnicastMode", StringValue(phyMode));
+
+    // Após três pedidos ARP sem resposta, o ns-3 marca o vizinho como
+    // inalcançável por DeadTimeout (100 s por padrão) e descarta todos os
+    // pacotes destinados a ele, mesmo que volte ao alcance logo depois. Com
+    // mobilidade, isso elimina fluxos inteiros por um efeito abaixo da camada
+    // de roteamento, igual para os três protocolos; com 1 s, o nó volta a
+    // tentar a resolução pouco depois da falha.
+    Config::SetDefault("ns3::ArpCache::DeadTimeout", TimeValue(Seconds(m_arpDeadTimeout)));
 
     NodeContainer adhocNodes;
     adhocNodes.Create(m_nodes);
@@ -421,6 +450,9 @@ RoutingExperiment::Run()
     Ipv4InterfaceContainer adhocInterfaces;
     adhocInterfaces = addressAdhoc.Assign(adhocDevices);
 
+    Ptr<UniformRandomVariable> startVar = CreateObject<UniformRandomVariable>();
+    startVar->SetStream(streamIndex++);
+
     OnOffHelper onoff1("ns3::UdpSocketFactory", Address());
     onoff1.SetAttribute("OnTime", StringValue("ns3::ConstantRandomVariable[Constant=1.0]"));
     onoff1.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0.0]"));
@@ -436,8 +468,15 @@ RoutingExperiment::Run()
         temp.Get(0)->TraceConnectWithoutContext(
             "Tx",
             MakeCallback(&RoutingExperiment::SendPacket, this));
-        temp.Start(Seconds(m_appStart));
-        temp.Stop(Seconds(m_appStop));
+        // Início sorteado em [appStart, appStart + startJitter), como no exemplo
+        // original do ns-3. Fluxos iniciados no mesmo instante sincronizam os
+        // pedidos ARP, que colidem nas três tentativas; o ns-3 então marca o
+        // vizinho como inalcançável por 100 s (ArpCache::DeadTimeout) e descarta
+        // os pacotes do fluxo. Cada fluxo transmite por exatamente
+        // appStop - appStart segundos.
+        double start = m_appStart + startVar->GetValue(0, m_startJitter);
+        temp.Start(Seconds(start));
+        temp.Stop(Seconds(start + m_appStop - m_appStart));
     }
 
     AsciiTraceHelper ascii;
@@ -446,7 +485,12 @@ RoutingExperiment::Run()
         MobilityHelper::EnableAsciiAll(ascii.CreateFileStream(m_outDir + "/mobilidade.mob"));
     }
 
+    // Por padrão, o FlowMonitor declara perdido o pacote que leva mais de 10 s
+    // por salto (MaxPerHopDelay); AODV e DSDV retêm pacotes por até 30 s
+    // durante a busca de rota. Sem esse ajuste, pacotes entregues com atraso
+    // longo contariam para o PDR mas ficariam fora do atraso e do jitter.
     FlowMonitorHelper flowmonHelper;
+    flowmonHelper.SetMonitorAttribute("MaxPerHopDelay", TimeValue(Seconds(m_totalTime)));
     Ptr<FlowMonitor> flowmon = flowmonHelper.InstallAll();
 
     NS_LOG_INFO("Run Simulation.");
@@ -456,7 +500,7 @@ RoutingExperiment::Run()
     Simulator::Stop(Seconds(m_totalTime));
     Simulator::Run();
 
-    flowmon->SerializeToXmlFile(m_outDir + "/flowmon.xml", false, false);
+    flowmon->SerializeToXmlFile(m_outDir + "/flowmon.xml", m_histograms, false);
     WriteSummary(flowmon, DynamicCast<Ipv4FlowClassifier>(flowmonHelper.GetClassifier()));
 
     Simulator::Destroy();

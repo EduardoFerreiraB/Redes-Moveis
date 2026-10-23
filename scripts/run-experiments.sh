@@ -7,7 +7,7 @@
 #   bash scripts/run-experiments.sh
 # Variáveis opcionais (padrões entre parênteses):
 #   PROTOCOLS ("AODV OLSR DSDV")   SPEEDS ("1 5 10 20")   PAUSE (0)
-#   RUNS (10)  -> runs 1..RUNS     SEED (1)
+#   RUNS (20)  -> runs 1..RUNS     SEED (1)
 #   EXTRA_ARGS ("")                parâmetros adicionais do simulador, ex.: "--nodes=40"
 #   OUT_DIR (data/raw/execucoes)   NS3_DIR (~/ns-3)   JOBS (nº de CPUs)
 set -euo pipefail
@@ -17,7 +17,7 @@ NS3_DIR="${NS3_DIR:-$HOME/ns-3}"
 PROTOCOLS="${PROTOCOLS:-AODV OLSR DSDV}"
 SPEEDS="${SPEEDS:-1 5 10 20}"
 PAUSE="${PAUSE:-0}"
-RUNS="${RUNS:-10}"
+RUNS="${RUNS:-20}"
 SEED="${SEED:-1}"
 EXTRA_ARGS="${EXTRA_ARGS:-}"
 OUT_DIR="$(realpath -m "${OUT_DIR:-$REPO_DIR/data/raw/execucoes}")"

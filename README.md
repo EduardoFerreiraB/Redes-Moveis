@@ -53,18 +53,43 @@ bash scripts/setup-ns3.sh
 
 ### 2. Executar as simulações
 
-Executa as 120 simulações (3 protocolos × 4 velocidades × 10 runs) em paralelo,
-em cerca de 2 minutos com 16 núcleos. Cada execução imprime uma linha com o
+Executa as 240 simulações (3 protocolos × 4 velocidades × 20 runs) em paralelo,
+em cerca de 4 minutos com 16 núcleos. Cada execução imprime uma linha com o
 resultado e grava seus arquivos em `data/raw/execucoes/`.
 
 ```bash
 bash scripts/run-experiments.sh
 ```
 
-### 3. Gerar estatísticas e gráficos
+### 3. Medir alcance do rádio e conectividade
+
+Duas análises de apoio, que ajudam a explicar as perdas:
+
+```bash
+# Alcance: entrega entre dois nós parados, de 1 a 400 m, a 7,5, 12 e 16 dBm
+bash scripts/range-test.sh
+
+# Trajetórias dos nós de cada velocidade e run (iguais para os 3 protocolos)
+bash scripts/mobility-traces.sh
+
+# Fração do tempo em que cada par origem-destino tem algum caminho possível
+~/.venvs/redes-moveis/bin/python scripts/connectivity.py --alcance 138
+```
+
+`range-test.sh` grava `data/raw/alcance/alcance.csv`. Com a potência do
+cenário (7,5 dBm), a entrega é de 100% até 138 m e nula a partir de 139 m.
+`connectivity.py` usa esse alcance para montar, a cada 0,5 s do período de
+tráfego, o grafo de nós ao alcance uns dos outros, e grava
+`data/processed/conectividade.csv`. Essa conectividade é uma referência
+superior para o PDR: sem caminho, nenhum protocolo consegue entregar. A
+exceção é o AODV, que retém pacotes durante a busca de rota e pode
+entregá-los quando o caminho reaparece.
+
+### 4. Gerar estatísticas e gráficos
 
 Consolida as execuções em `data/processed/`, gera os gráficos em `figures/` e
-imprime uma tabela com as médias.
+imprime uma tabela com as médias. Se `data/processed/conectividade.csv`
+existir, o gráfico de PDR inclui a curva de conectividade.
 
 ```bash
 ~/.venvs/redes-moveis/bin/python scripts/analyze.py
@@ -77,7 +102,7 @@ entre protocolos (padrão: 10 m/s):
 ~/.venvs/redes-moveis/bin/python scripts/analyze.py --comparar-velocidade 20
 ```
 
-As simulações são determinísticas: executar os passos 2 e 3 novamente produz
+As simulações são determinísticas: executar os passos 2 a 4 novamente produz
 arquivos idênticos aos versionados no repositório.
 
 ## Cenário simulado
@@ -94,15 +119,15 @@ arquivos idênticos aos versionados no repositório.
 | Protocolos | AODV, OLSR, DSDV |
 | Tráfego | 4 fluxos UDP (OnOff sempre ligado), 32768 b/s por fluxo, pacotes de 1024 bytes |
 | Pares de fluxo | nó `i + 4` envia para o nó `i` (i = 0..3) |
-| Período de tráfego | 20 s a 110 s |
+| Período de tráfego | cada fluxo começa em instante sorteado entre 20 s e 21 s e transmite por 90 s |
 | Tempo de simulação | 120 s |
-| Repetições | 10 runs por configuração (seed = 1, run = 1..10) |
+| Repetições | 20 runs por configuração (seed = 1, run = 1..20) |
 
 ### Sementes
 
 O ns-3 gera números aleatórios a partir de uma *seed* e de um número de *run*.
 Seguindo a recomendação da documentação do ns-3, a seed é fixa (`--seed=1`) e
-cada repetição usa um run diferente (`--run=1` a `--run=10`), o que garante
+cada repetição usa um run diferente (`--run=1` a `--run=20`), o que garante
 sequências aleatórias independentes. Com a mesma seed e o mesmo run, os três
 protocolos recebem exatamente o mesmo padrão de mobilidade, então a comparação
 entre eles é pareada. Os comandos exatos ficam em
@@ -118,8 +143,13 @@ registra o tráfego de controle dos protocolos, que é ignorado.
 | Pacotes gerados | pacotes que as aplicações deveriam enviar no período de tráfego |
 | PDR (%) | recebidos / gerados × 100 |
 | Vazão (Mbps) | bytes de aplicação recebidos × 8 / 90 s |
-| Atraso médio (ms) | soma dos atrasos dos pacotes recebidos / pacotes recebidos (FlowMonitor) |
-| Jitter médio (ms) | média de \|atraso(k) − atraso(k−1)\| entre pacotes consecutivos (FlowMonitor) |
+| Atraso médio (ms) | Σ delaySum / Σ pacotes recebidos, somando os 4 fluxos (FlowMonitor) |
+| Jitter médio (ms) | Σ jitterSum / Σ (pacotes recebidos − 1), somando os 4 fluxos; jitterSum acumula \|atraso(k) − atraso(k−1)\| entre pacotes consecutivos de um fluxo (FlowMonitor) |
+
+Atraso e jitter consideram todos os pacotes entregues, inclusive os que
+esperaram na fila do protocolo durante a busca de rota: o limite
+`MaxPerHopDelay` do FlowMonitor, de 10 s por padrão, foi ampliado para a
+duração da simulação.
 
 O PDR usa os pacotes **gerados**, e não os transmitidos. No OLSR, quando a
 origem ainda não tem rota, o `OnOffApplication` não consegue enviar e retém o
@@ -152,6 +182,35 @@ O resultado é impresso na tela e gravado em `/tmp/teste/resumo.csv`, junto com
 | `--traceMobility` | false | grava a trajetória dos nós |
 | `--verbose` | false | imprime cada pacote recebido |
 
+## Variável extra do grupo: potência de transmissão
+
+Segunda etapa experimental, separada do experimento-base. Todos os parâmetros
+do cenário-base são mantidos (protocolos, velocidades, runs e seeds), e só a
+potência de transmissão muda:
+
+| Nível | Alcance medido | Pasta de dados |
+|---|---|---|
+| 7,5 dBm (base) | 138 m | `data/raw/execucoes/` |
+| 12 dBm | 232 m | `data/raw/potencia-12dbm/` |
+| 16 dBm | 367 m | `data/raw/potencia-16dbm/` |
+
+```bash
+# Simulações dos dois níveis adicionais (o nível 7,5 dBm é o experimento-base)
+EXTRA_ARGS="--txPower=12" OUT_DIR=data/raw/potencia-12dbm bash scripts/run-experiments.sh
+EXTRA_ARGS="--txPower=16" OUT_DIR=data/raw/potencia-16dbm bash scripts/run-experiments.sh
+
+# Conectividade com o alcance de cada nível (mesmas trajetórias do base)
+~/.venvs/redes-moveis/bin/python scripts/connectivity.py --alcance 232 \
+    --out data/processed/potencia-12dbm/conectividade.csv
+~/.venvs/redes-moveis/bin/python scripts/connectivity.py --alcance 367 \
+    --out data/processed/potencia-16dbm/conectividade.csv
+
+# Estatísticas dos três níveis e gráficos com um painel por potência
+~/.venvs/redes-moveis/bin/python scripts/compare-levels.py
+```
+
+Saídas em `data/processed/potencia/` e `figures/potencia/`.
+
 ## Variações do experimento
 
 `run-experiments.sh` aceita variáveis de ambiente antes do comando:
@@ -161,7 +220,7 @@ O resultado é impresso na tela e gravado em `/tmp/teste/resumo.csv`, junto com
 | `PROTOCOLS` | `AODV OLSR DSDV` | protocolos simulados |
 | `SPEEDS` | `1 5 10 20` | velocidades (m/s) |
 | `PAUSE` | `0` | tempo de pausa (s) |
-| `RUNS` | `10` | repetições por configuração (runs 1..RUNS) |
+| `RUNS` | `20` | repetições por configuração (runs 1..RUNS) |
 | `SEED` | `1` | seed do gerador de números aleatórios |
 | `EXTRA_ARGS` | vazio | outros parâmetros do simulador, ex.: `--nodes=40` |
 | `OUT_DIR` | `data/raw/execucoes` | pasta de saída |
@@ -186,19 +245,30 @@ Outros exemplos: `PAUSE=10` (pausa de 10 s), `EXTRA_ARGS="--txPower=15"`
 
 ```
 src/manet-routing.cc        cenário de simulação (C++)
+src/range-test.cc           teste de alcance do rádio (dois nós parados)
 scripts/setup-ns3.sh        instalação do ambiente
 scripts/run-experiments.sh  campanha de simulações
+scripts/range-test.sh       varredura de alcance por distância e potência
+scripts/mobility-traces.sh  trajetórias dos nós por velocidade e run
+scripts/connectivity.py     conectividade dos pares origem-destino
 scripts/analyze.py          estatísticas e gráficos
+scripts/compare-levels.py   comparação dos níveis de potência (variável extra)
 requirements.txt            bibliotecas Python
 data/raw/execucoes/         uma pasta por execução:
     resumo.csv                parâmetros e métricas da execução
     vazao-por-segundo.csv     vazão recebida a cada segundo
     flowmon.xml               saída bruta do FlowMonitor
-data/raw/piloto-*           piloto inicial com AODV a 1 m/s
+data/raw/alcance/           entrega por distância e potência
+data/raw/mobilidade/        trajetórias (v<velocidade>_p<pausa>_r<run>.mob)
+data/raw/piloto-*           piloto inicial com AODV a 1 m/s (código do commit d5eb420)
 data/processed/
     execucoes.csv             todas as execuções em uma tabela
     resumo-estatistico.csv    n, média, desvio-padrão, mínimo, máximo e IC 95%
+    conectividade.csv         % do tempo com caminho, por par, velocidade e run
+data/raw/potencia-*dbm/     execuções dos níveis de potência 12 e 16 dBm
+data/processed/potencia*/   estatísticas e conectividade da variável extra
 figures/                    gráficos (PDF para o artigo, PNG para visualização)
+figures/potencia/           gráficos da variável extra
 article/                    artigo (modelo SBC)
 ```
 
