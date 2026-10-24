@@ -35,7 +35,7 @@ def plot_levels(summary: pd.DataFrame, fig_dir: Path) -> None:
     levels = sorted(summary["txPower"].unique())
     speeds = sorted(summary["speed"].unique())
     for metric, (label, name) in METRICS.items():
-        fig, axes = plt.subplots(1, len(levels), figsize=(6.6, 2.4), sharey=True)
+        fig, axes = plt.subplots(1, len(levels), figsize=(6.6, 2.1), sharey=True)
         for ax, level in zip(axes, levels):
             data = summary[summary["txPower"] == level]
             for protocol in PROTOCOLS:

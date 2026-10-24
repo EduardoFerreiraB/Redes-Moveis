@@ -138,7 +138,7 @@ def plot_comparison(summary: pd.DataFrame, speed: float, fig_dir: Path) -> None:
     if data.empty:
         print(f"Aviso: sem dados para a velocidade {speed} m/s; comparativo não gerado")
         return
-    fig, axes = plt.subplots(1, 4, figsize=(7, 2.2))
+    fig, axes = plt.subplots(1, 4, figsize=(7, 1.9))
     for ax, (metric, (label, _)) in zip(axes, METRICS.items()):
         protocols = [p for p in PROTOCOLS if p in data.index]
         means = [data.loc[p, f"{metric}_mean"] for p in protocols]
@@ -151,7 +151,7 @@ def plot_comparison(summary: pd.DataFrame, speed: float, fig_dir: Path) -> None:
         ax.set_title(label)
         ax.grid(axis="x", visible=False)
         ax.set_ylim(bottom=0)
-    fig.suptitle(f"Comparação entre protocolos a {speed:g} m/s (média e IC 95%)", fontsize=9)
+    # Sem título interno: a velocidade e o IC são informados na legenda da figura.
     fig.tight_layout()
     save(fig, f"comparativo-{speed:g}ms", fig_dir)
 

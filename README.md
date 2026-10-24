@@ -105,6 +105,11 @@ entre protocolos (padrão: 10 m/s):
 As simulações são determinísticas: executar os passos 2 a 4 novamente produz
 arquivos idênticos aos versionados no repositório.
 
+### 5. Variável extra
+
+Os comandos da potência de transmissão estão na seção
+[Variável extra do grupo](#variável-extra-do-grupo-potência-de-transmissão).
+
 ## Cenário simulado
 
 | Parâmetro | Valor |
@@ -178,8 +183,11 @@ O resultado é impresso na tela e gravado em `/tmp/teste/resumo.csv`, junto com
 | `--dataRate` | 32768bps | taxa de cada fluxo |
 | `--txPower` | 7.5 | potência de transmissão (dBm) |
 | `--seed` / `--run` | 1 / 1 | gerador de números aleatórios |
+| `--startJitter` | 1 | cada fluxo começa em instante sorteado entre 20 s e 20 s + `startJitter` |
+| `--arpDeadTimeout` | 1 | tempo (s) em que um vizinho sem resposta ARP fica marcado como inalcançável |
 | `--outDir` | . | pasta de saída |
-| `--traceMobility` | false | grava a trajetória dos nós |
+| `--traceMobility` | false | grava a trajetória dos nós em `mobilidade.mob` |
+| `--histograms` | false | inclui histogramas de atraso e jitter no `flowmon.xml` |
 | `--verbose` | false | imprime cada pacote recebido |
 
 ## Variável extra do grupo: potência de transmissão
@@ -210,6 +218,23 @@ EXTRA_ARGS="--txPower=16" OUT_DIR=data/raw/potencia-16dbm bash scripts/run-exper
 ```
 
 Saídas em `data/processed/potencia/` e `figures/potencia/`.
+
+## Gráficos
+
+| Gráfico | Arquivo em `figures/` |
+|---|---|
+| PDR × velocidade (com a curva de conectividade) | `pdr-vs-velocidade` |
+| Vazão × velocidade | `vazao-vs-velocidade` |
+| Atraso × velocidade | `atraso-vs-velocidade` |
+| Jitter × velocidade | `jitter-vs-velocidade` |
+| Comparativo agregado entre AODV, OLSR e DSDV a 10 m/s | `comparativo-10ms` |
+| Variável extra: cada métrica × velocidade, um painel por potência | `potencia/<métrica>-por-potencia` |
+
+Cada gráfico existe em PDF (usado no artigo) e em PNG. As linhas mostram a
+média das 20 runs e as barras, o intervalo de confiança de 95%.
+
+O artigo, no modelo da SBC, é entregue em PDF e usa os gráficos em PDF desta
+pasta.
 
 ## Variações do experimento
 
@@ -260,7 +285,6 @@ data/raw/execucoes/         uma pasta por execução:
     flowmon.xml               saída bruta do FlowMonitor
 data/raw/alcance/           entrega por distância e potência
 data/raw/mobilidade/        trajetórias (v<velocidade>_p<pausa>_r<run>.mob)
-data/raw/piloto-*           piloto inicial com AODV a 1 m/s (código do commit d5eb420)
 data/processed/
     execucoes.csv             todas as execuções em uma tabela
     resumo-estatistico.csv    n, média, desvio-padrão, mínimo, máximo e IC 95%
@@ -269,7 +293,7 @@ data/raw/potencia-*dbm/     execuções dos níveis de potência 12 e 16 dBm
 data/processed/potencia*/   estatísticas e conectividade da variável extra
 figures/                    gráficos (PDF para o artigo, PNG para visualização)
 figures/potencia/           gráficos da variável extra
-article/                    artigo (modelo SBC)
+ambiente.txt                versões do sistema, compilador, Python e ns-3 usados
 ```
 
 ## Origem do código
