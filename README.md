@@ -138,6 +138,19 @@ protocolos recebem exatamente o mesmo padrão de mobilidade, então a comparaç�
 entre eles é pareada. Os comandos exatos ficam em
 `data/raw/execucoes/comandos.txt`.
 
+### Ajustes de implementação
+
+Três ajustes foram adotados, todos justificados também no artigo:
+
+| Ajuste | Motivo |
+|---|---|
+| Cada fluxo começa em instante sorteado entre 20 s e 21 s (`--startJitter=1`), como no exemplo original do ns-3 | Com os quatro fluxos começando no mesmo instante, os pedidos ARP iniciais colidiam e fluxos inteiros deixavam de ser entregues |
+| Um vizinho sem resposta ARP fica marcado como inalcançável por 1 s (`--arpDeadTimeout=1`), e não pelos 100 s padrão do ns-3 | Com mobilidade, um vizinho que sai do alcance pode voltar em poucos segundos; com 100 s, o nó continuava descartando pacotes para ele mesmo com o caminho disponível |
+| O limite `MaxPerHopDelay` do FlowMonitor passou de 10 s para a duração da simulação | Pacotes que esperaram mais de 10 s por uma rota eram entregues, mas ficavam fora das estatísticas do FlowMonitor |
+
+Os dois primeiros ajustes podem ser desfeitos pela linha de comando
+(`--startJitter=0 --arpDeadTimeout=100`) para comparação.
+
 ## Métricas
 
 Calculadas apenas sobre os fluxos de dados (porta UDP 9). O FlowMonitor também
