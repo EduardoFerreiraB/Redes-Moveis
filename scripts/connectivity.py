@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Mede quanto tempo cada par origem-destino tem algum caminho possível.
+"""Diagnóstico histórico por raio; não usado no artigo revisado de áreas.
 
 A partir das trajetórias (data/raw/mobilidade/*.mob) e do alcance do rádio
 (medido com scripts/range-test.sh), monta a cada instante o grafo de
 conectividade (aresta entre nós a no máximo --alcance metros) e verifica se
 existe caminho, com qualquer número de saltos, entre a origem e o destino de
-cada fluxo. A fração do período de tráfego em que há caminho é um limite
-superior para o PDR de qualquer protocolo de roteamento.
+cada fluxo. A fração instantânea com caminho não é um limite formal do PDR:
+pacotes podem aguardar em filas e ser entregues quando caminhos reaparecem.
+Não representa a recepção sob contenção nem obstáculos geométricos.
 
 Saída: data/processed/conectividade.csv (uma linha por velocidade e run)
 

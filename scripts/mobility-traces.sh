@@ -6,7 +6,7 @@
 # Uso:
 #   bash scripts/mobility-traces.sh
 # Variáveis opcionais: SPEEDS ("1 5 10 20"), PAUSE (0), RUNS (20), SEED (1),
-#   EXTRA_ARGS (""), OUT_DIR (data/raw/mobilidade), NS3_DIR (~/ns-3), JOBS
+#   EXTRA_ARGS (""), OUT_DIR (data/raw/mobilidade-area-500m), NS3_DIR (~/ns-3), JOBS
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -16,7 +16,7 @@ PAUSE="${PAUSE:-0}"
 RUNS="${RUNS:-20}"
 SEED="${SEED:-1}"
 EXTRA_ARGS="${EXTRA_ARGS:-}"
-OUT_DIR="$(realpath -m "${OUT_DIR:-$REPO_DIR/data/raw/mobilidade}")"
+OUT_DIR="$(realpath -m "${OUT_DIR:-$REPO_DIR/data/raw/mobilidade-area-500m}")"
 JOBS="${JOBS:-$(nproc)}"
 
 ln -sf "$REPO_DIR/src/manet-routing.cc" "$NS3_DIR/scratch/manet-routing.cc"

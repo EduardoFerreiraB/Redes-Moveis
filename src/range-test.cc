@@ -5,11 +5,11 @@
  *
  * Dois nós parados a --distance metros; o nó 1 envia --packets pacotes UDP
  * unicast de 1024 bytes ao nó 0, um a cada 50 ms. A camada física é a mesma
- * do cenário principal: IEEE 802.11b ad hoc a 11 Mb/s, perda de Friis e
- * potência --txPower. Imprime "distancia,potencia,enviados,recebidos,taxa".
+ * do cenário principal: IEEE 802.11b, canal 1 (2,412 GHz), 11 Mb/s,
+ * LogDistance (n=2,7), 16 dBm e ganhos de 0 dB.
  *
  * Uso típico (ver scripts/range-test.sh):
- *   ./ns3 run "range-test --distance=150 --txPower=7.5"
+ *   ./ns3 run "range-test --distance=150"
  */
 
 #include "ns3/applications-module.h"
@@ -20,6 +20,7 @@
 #include "ns3/yans-wifi-helper.h"
 
 #include <iostream>
+#include <cmath>
 
 using namespace ns3;
 
@@ -38,13 +39,15 @@ int
 main(int argc, char* argv[])
 {
     double distance = 100.0;
-    double txPower = 7.5;
+    double txPower = 16.0;
+    double exponent = 2.7;
     uint32_t packets = 200;
     uint32_t packetSize = 1024;
 
     CommandLine cmd(__FILE__);
     cmd.AddValue("distance", "Distance between the two nodes (m)", distance);
     cmd.AddValue("txPower", "Transmission power (dBm)", txPower);
+    cmd.AddValue("pathLossExponent", "Log-distance exponent", exponent);
     cmd.AddValue("packets", "Number of packets to send", packets);
     cmd.AddValue("packetSize", "UDP payload size (bytes)", packetSize);
     cmd.Parse(argc, argv);
@@ -60,8 +63,14 @@ main(int argc, char* argv[])
     YansWifiPhyHelper wifiPhy;
     YansWifiChannelHelper wifiChannel;
     wifiChannel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
-    wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel");
+    wifiChannel.AddPropagationLoss("ns3::LogDistancePropagationLossModel",
+        "Exponent", DoubleValue(exponent), "ReferenceDistance", DoubleValue(1.0),
+        "ReferenceLoss", DoubleValue(20 * std::log10(4 * std::acos(-1.0) * 2.412e9 / 299792458.0)));
     wifiPhy.SetChannel(wifiChannel.Create());
+    wifiPhy.Set("ChannelSettings", StringValue("{1, 22, BAND_2_4GHZ, 0}"));
+    wifiPhy.Set("TxGain", DoubleValue(0.0));
+    wifiPhy.Set("RxGain", DoubleValue(0.0));
+    wifiPhy.Set("TxPowerLevels", UintegerValue(1));
     wifiPhy.Set("TxPowerStart", DoubleValue(txPower));
     wifiPhy.Set("TxPowerEnd", DoubleValue(txPower));
     wifi.SetRemoteStationManager("ns3::ConstantRateWifiManager",
@@ -75,8 +84,8 @@ main(int argc, char* argv[])
 
     MobilityHelper mobility;
     Ptr<ListPositionAllocator> positions = CreateObject<ListPositionAllocator>();
-    positions->Add(Vector(0, 0, 0));
-    positions->Add(Vector(distance, 0, 0));
+    positions->Add(Vector(0, 0, 1.5));
+    positions->Add(Vector(distance, 0, 1.5));
     mobility.SetPositionAllocator(positions);
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobility.Install(nodes);

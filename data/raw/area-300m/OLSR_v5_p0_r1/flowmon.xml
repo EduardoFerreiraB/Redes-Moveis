@@ -1,0 +1,29 @@
+<?xml version="1.0" ?>
+<FlowMonitor>
+  <FlowStats>
+    <Flow flowId="1" timeFirstTxPacket="+2.03034e+10ns" timeFirstRxPacket="+2.03076e+10ns" timeLastTxPacket="+1.09803e+11ns" timeLastRxPacket="+1.09806e+11ns" delaySum="+5.33515e+08ns" jitterSum="+2.0443e+08ns" lastDelay="+2.28158e+06ns" maxDelay="+2.86318e+07ns" minDelay="+1.03411e+06ns" txBytes="377668" rxBytes="315600" txPackets="359" rxPackets="300" lostPackets="0" timesForwarded="87">
+    </Flow>
+    <Flow flowId="2" timeFirstTxPacket="+2.0861e+10ns" timeFirstRxPacket="+2.08672e+10ns" timeLastTxPacket="+1.10361e+11ns" timeLastRxPacket="+1.10362e+11ns" delaySum="+4.89626e+08ns" jitterSum="+1.11946e+08ns" lastDelay="+1.03428e+06ns" maxDelay="+2.33917e+07ns" minDelay="+1.03415e+06ns" txBytes="377668" rxBytes="356628" txPackets="359" rxPackets="339" lostPackets="0" timesForwarded="47">
+    </Flow>
+    <Flow flowId="3" timeFirstTxPacket="+2.09232e+10ns" timeFirstRxPacket="+2.09293e+10ns" timeLastTxPacket="+1.10423e+11ns" timeLastRxPacket="+1.10424e+11ns" delaySum="+6.48445e+08ns" jitterSum="+2.81641e+08ns" lastDelay="+1.0343e+06ns" maxDelay="+2.28323e+07ns" minDelay="+1.03418e+06ns" txBytes="377668" rxBytes="272468" txPackets="359" rxPackets="259" lostPackets="0" timesForwarded="182">
+    </Flow>
+    <Flow flowId="4" timeFirstTxPacket="+2.10828e+10ns" timeFirstRxPacket="+2.1091e+10ns" timeLastTxPacket="+1.10583e+11ns" timeLastRxPacket="+1.10584e+11ns" delaySum="+3.88476e+08ns" jitterSum="+2.61369e+07ns" lastDelay="+1.51432e+06ns" maxDelay="+8.18525e+06ns" minDelay="+1.03401e+06ns" txBytes="377668" rxBytes="377668" txPackets="359" rxPackets="359" lostPackets="0" timesForwarded="0">
+    </Flow>
+  </FlowStats>
+  <Ipv4FlowClassifier>
+    <Flow flowId="2" sourceAddress="10.1.1.5" destinationAddress="10.1.1.1" protocol="17" sourcePort="49153" destinationPort="9">
+      <Dscp value="0x0" packets="359" />
+    </Flow>
+    <Flow flowId="1" sourceAddress="10.1.1.6" destinationAddress="10.1.1.2" protocol="17" sourcePort="49153" destinationPort="9">
+      <Dscp value="0x0" packets="359" />
+    </Flow>
+    <Flow flowId="4" sourceAddress="10.1.1.7" destinationAddress="10.1.1.3" protocol="17" sourcePort="49153" destinationPort="9">
+      <Dscp value="0x0" packets="359" />
+    </Flow>
+    <Flow flowId="3" sourceAddress="10.1.1.8" destinationAddress="10.1.1.4" protocol="17" sourcePort="49153" destinationPort="9">
+      <Dscp value="0x0" packets="359" />
+    </Flow>
+  </Ipv4FlowClassifier>
+  <Ipv6FlowClassifier>
+  </Ipv6FlowClassifier>
+</FlowMonitor>

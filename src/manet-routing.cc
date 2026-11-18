@@ -21,9 +21,9 @@
  * Cenário MANET do trabalho de Redes Móveis (IFG Inhumas, 2026/2), adaptado
  * do exemplo examples/routing/manet-routing-compare.cc do ns-3.
  *
- * Cenário base (enunciado da atividade):
- * - 20 nós em 500 x 500 m, IEEE 802.11b ad hoc a 11 Mb/s, perda de Friis,
- *   potência de transmissão de 7,5 dBm;
+ * Cenário revisado: 20 nós, área variável, IEEE 802.11b a 11 Mb/s,
+ * canal 1 (2,412 GHz), 16 dBm fixos e perda log-distance (n=2,7).
+ * Atenuação ambiental agregada; não representa obstáculos ou relevo 3D.
  * - mobilidade RandomWaypointMobilityModel com velocidade constante
  *   (--speed) e tempo de pausa (--pause);
  * - 4 fluxos UDP (OnOff sempre ligado) de 32768 b/s com pacotes de 1024 bytes:
@@ -131,7 +131,12 @@ class RoutingExperiment
     double m_area{500.0};               //!< Side of the square area (m).
     uint32_t m_packetSize{1024};        //!< Application packet size (bytes).
     std::string m_dataRate{"32768bps"}; //!< Application data rate per flow.
-    double m_txp{7.5};                  //!< Tx power (dBm).
+    double m_txp{16.0};                 //!< Tx power (dBm), fixed in the area campaign.
+    std::string m_propagation{"LogDistance"};
+    double m_pathLossExponent{2.7};
+    double m_antennaHeight{1.5};
+    const double m_frequencyHz{2.412e9}; //!< Same frequency as Wi-Fi channel 1.
+    double m_referenceLoss{0.0};
     uint32_t m_seed{1};                 //!< RNG seed.
     uint64_t m_run{1};                  //!< RNG run number.
     double m_totalTime{120.0};          //!< Simulation time (s).
@@ -236,6 +241,9 @@ RoutingExperiment::CommandSetup(int argc, char** argv)
     cmd.AddValue("packetSize", "Application packet size in bytes", m_packetSize);
     cmd.AddValue("dataRate", "Application data rate per flow", m_dataRate);
     cmd.AddValue("txPower", "Transmission power in dBm", m_txp);
+    cmd.AddValue("propagation", "LogDistance or Friis (reference only)", m_propagation);
+    cmd.AddValue("pathLossExponent", "Log-distance exponent (environmental assumption)", m_pathLossExponent);
+    cmd.AddValue("antennaHeight", "Common antenna height in m; no terrain geometry", m_antennaHeight);
     cmd.AddValue("seed", "RNG seed (RngSeedManager::SetSeed)", m_seed);
     cmd.AddValue("run", "RNG run number (RngSeedManager::SetRun)", m_run);
     cmd.AddValue("startJitter",
@@ -249,6 +257,15 @@ RoutingExperiment::CommandSetup(int argc, char** argv)
     cmd.AddValue("verbose", "Print every received packet", m_verbose);
     cmd.AddValue("histograms", "Include delay/jitter histograms in flowmon.xml", m_histograms);
     cmd.Parse(argc, argv);
+    NS_ABORT_MSG_IF(m_propagation != "LogDistance" && m_propagation != "Friis",
+                    "propagation must be LogDistance or Friis");
+    NS_ABORT_MSG_IF(!std::isfinite(m_area) || m_area <= 0 ||
+                    !std::isfinite(m_pathLossExponent) || m_pathLossExponent < 2 ||
+                    !std::isfinite(m_antennaHeight) || m_antennaHeight <= 0 ||
+                    !std::isfinite(m_txp) || m_txp < 13 || m_txp > 20,
+                    "Require area/height > 0, exponent >= 2 and txPower in [13,20] dBm");
+    // Free-space reference loss at 1 m, consistent with the configured PHY.
+    m_referenceLoss = 20 * std::log10(4 * std::acos(-1.0) * m_frequencyHz / 299792458.0);
 
     std::vector<std::string> allowedProtocols{"AODV", "OLSR", "DSDV"};
     if (std::find(allowedProtocols.begin(), allowedProtocols.end(), m_protocolName) ==
@@ -276,6 +293,7 @@ RoutingExperiment::WriteSummary(Ptr<FlowMonitor> flowmon, Ptr<Ipv4FlowClassifier
     uint64_t jitterSamples = 0;
     double delaySum = 0;
     double jitterSum = 0;
+    uint64_t forwarded = 0;
     for (const auto& [flowId, st] : flowmon->GetFlowStats())
     {
         if (classifier->FindFlow(flowId).destinationPort != port)
@@ -286,11 +304,13 @@ RoutingExperiment::WriteSummary(Ptr<FlowMonitor> flowmon, Ptr<Ipv4FlowClassifier
         fmRx += st.rxPackets;
         delaySum += st.delaySum.GetSeconds();
         jitterSum += st.jitterSum.GetSeconds();
+        forwarded += st.timesForwarded;
         jitterSamples += st.rxPackets > 1 ? st.rxPackets - 1 : 0;
     }
 
-    // Pacotes gerados: um a cada packetSize*8/dataRate segundos, por fluxo,
-    // enquanto a aplicação está ativa. Quando não há rota (ex.: OLSR antes de
+    // Demanda nominal: uma oportunidade a cada packetSize*8/dataRate segundos,
+    // por fluxo, enquanto a aplicação está ativa. Não é contador de geração
+    // efetiva do OnOff. Quando não há rota (ex.: OLSR antes de
     // convergir), o OnOffApplication não consegue enviar e retém o pacote para
     // a próxima tentativa; esses pacotes não aparecem no FlowMonitor nem no
     // trace "Tx". Por isso PDR e perdas são calculados sobre os gerados.
@@ -306,13 +326,18 @@ RoutingExperiment::WriteSummary(Ptr<FlowMonitor> flowmon, Ptr<Ipv4FlowClassifier
     std::ofstream out(m_outDir + "/resumo.csv");
     out << "protocol,speed,pause,nodes,flows,area,packetSize,dataRate,txPower,seed,run,"
         << "generatedPackets,txPackets,rxPackets,lostPackets,pdr,throughputMbps,delayMs,"
-        << "jitterMs,flowmonTxPackets,flowmonRxPackets,duplicatePackets" << std::endl;
+        << "jitterMs,flowmonTxPackets,flowmonRxPackets,duplicatePackets,"
+        << "propagation,pathLossExponent,frequencyHz,referenceLossDb,antennaHeight,"
+        << "meanHops,jitterSamples,startJitter,arpDeadTimeout" << std::endl;
     out << m_protocolName << "," << m_speed << "," << m_pause << "," << m_nodes << ","
         << m_flows << "," << m_area << "," << m_packetSize << "," << m_dataRate << ","
         << m_txp << "," << m_seed << "," << m_run << "," << generated << ","
         << m_appTxPackets << "," << m_appRxPackets << "," << lost << "," << pdr << ","
         << throughputMbps << "," << delayMs << "," << jitterMs << "," << fmTx << "," << fmRx
-        << "," << m_appRxDuplicates << std::endl;
+        << "," << m_appRxDuplicates << "," << m_propagation << "," << m_pathLossExponent
+        << "," << m_frequencyHz << "," << m_referenceLoss << "," << m_antennaHeight
+        << "," << (fmRx ? 1.0 + static_cast<double>(forwarded) / fmRx : 0.0)
+        << "," << jitterSamples << "," << m_startJitter << "," << m_arpDeadTimeout << std::endl;
     out.close();
 
     std::cout << m_protocolName << " speed=" << m_speed << " pause=" << m_pause
@@ -375,8 +400,22 @@ RoutingExperiment::Run()
     YansWifiPhyHelper wifiPhy;
     YansWifiChannelHelper wifiChannel;
     wifiChannel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
-    wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel");
+    if (m_propagation == "Friis")
+    {
+        wifiChannel.AddPropagationLoss("ns3::FriisPropagationLossModel",
+                                       "Frequency", DoubleValue(m_frequencyHz));
+    }
+    else
+    {
+        wifiChannel.AddPropagationLoss("ns3::LogDistancePropagationLossModel",
+                                       "Exponent", DoubleValue(m_pathLossExponent),
+                                       "ReferenceDistance", DoubleValue(1.0),
+                                       "ReferenceLoss", DoubleValue(m_referenceLoss));
+    }
     wifiPhy.SetChannel(wifiChannel.Create());
+    wifiPhy.Set("ChannelSettings", StringValue("{1, 22, BAND_2_4GHZ, 0}"));
+    wifiPhy.Set("TxGain", DoubleValue(0.0));
+    wifiPhy.Set("RxGain", DoubleValue(0.0));
 
     // Add a mac and disable rate control
     WifiMacHelper wifiMac;
@@ -388,6 +427,7 @@ RoutingExperiment::Run()
 
     wifiPhy.Set("TxPowerStart", DoubleValue(m_txp));
     wifiPhy.Set("TxPowerEnd", DoubleValue(m_txp));
+    wifiPhy.Set("TxPowerLevels", UintegerValue(1));
 
     wifiMac.SetType("ns3::AdhocWifiMac");
     NetDeviceContainer adhocDevices = wifi.Install(wifiPhy, wifiMac, adhocNodes);
@@ -401,6 +441,7 @@ RoutingExperiment::Run()
     pos.SetTypeId("ns3::RandomRectanglePositionAllocator");
     pos.Set("X", StringValue(ssArea.str()));
     pos.Set("Y", StringValue(ssArea.str()));
+    pos.Set("Z", DoubleValue(m_antennaHeight));
 
     Ptr<PositionAllocator> taPositionAlloc = pos.Create()->GetObject<PositionAllocator>();
     streamIndex += taPositionAlloc->AssignStreams(streamIndex);

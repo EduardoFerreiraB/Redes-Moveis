@@ -1,317 +1,178 @@
-# Avaliação de mobilidade e roteamento em MANET com NS-3
+# Mobilidade e área em MANETs com perdas ambientais
 
-Trabalho da disciplina de Redes Móveis — Engenharia de Software,
-IFG Campus Inhumas — 2026/2.
+Redes Móveis, IFG Câmpus Inhumas, 2026/2. Eduardo Ferreira de Brito Matos,
+Pedro Américo Rocha e Thiago Ferreira. **Revisão: 18/11/2026.**
 
-## Integrantes
+Comparamos AODV, OLSR e DSDV variando a velocidade. A variável adicional
+agora é a **área**, com rádio fixo e perda ambiental média log-distance.
+Justificativa e limitações: [nota metodológica](docs/revisao-metodologica.md).
 
-- Eduardo Ferreira de Brito Matos
-- Thiago Ferreira
-- Pedro Americo
+## Alterações
 
-## Objetivo
+- Potência fixa de 16 dBm; canal 1, 2,412 GHz, largura de 22 MHz.
+- Áreas de 300 × 300, 500 × 500 (base) e 700 × 700 m, com 20 nós.
+- LogDistancePropagationLossModel: n = 2,7 e L0 = 40,0953 dB a 1 m.
+- Nova campanha de 720 simulações, novos gráficos e artigo revisado.
+- Correção da frequência implícita de Friis: o padrão antigo era 5,15 GHz.
 
-Avaliar, no simulador NS-3, como a velocidade dos nós afeta o desempenho dos
-protocolos de roteamento AODV, OLSR e DSDV em uma MANET, medindo PDR, vazão,
-atraso fim a fim e jitter.
+**A aproximação ambiental não modela árvores, prédios ou relevo geométrico.**
+O expoente 2,7 é uma hipótese sem calibração de campo. A altura comum de
+1,5 m apenas fixa Z, sem introduzir topografia ou efeito de altura no canal.
+Não há shadowing/fading aleatório nem interferência externa. A faixa de
+13–20 dBm foi informada pelo grupo para o equipamento de interesse; não é
+uma regra universal do IEEE 802.11b nem validação de um hardware específico.
 
-## Ambiente
+As pastas antigas `data/raw/execucoes`, `potencia-*dbm`,
+`data/processed/potencia*`, `figures/potencia` e os gráficos na raiz de
+`figures/` são **históricos** e não entram no artigo revisado. Não misture
+seus dados com os novos. A conectividade antiga por raio não fundamenta
+as conclusões da revisão.
 
-| Item | Versão |
-|---|---|
-| Sistema | Ubuntu 26.04 LTS (nativo ou WSL 2 no Windows) |
-| NS-3 | ns-3.48 (commit `d2add90b452d600cfb4859baed8e9ea633519447`) |
-| Compilador | g++ 15.2, CMake 4.2.3, Ninja |
-| Python | 3.14, com as bibliotecas de `requirements.txt` |
+## Ambiente e reprodução
 
-## Reprodução completa
-
-### 0. Abrir o terminal do Ubuntu
-
-- **Linux:** abra um terminal e vá até a pasta do repositório.
-- **Windows com WSL 2:** no PowerShell, execute `wsl -d Ubuntu`. Os discos do
-  Windows aparecem em `/mnt/<letra>`; por exemplo, `C:\Projetos\Redes-Moveis`
-  é `/mnt/c/Projetos/Redes-Moveis`.
-
-```bash
-git clone https://github.com/EduardoFerreiraB/Redes-Moveis.git
-cd Redes-Moveis
-```
-
-Todos os comandos a seguir são executados no terminal do Ubuntu, a partir da
-raiz do repositório.
-
-### 1. Preparar o ambiente (uma única vez)
-
-Instala as dependências, baixa e compila o ns-3.48 em `~/ns-3` e cria o
-ambiente Python em `~/.venvs/redes-moveis`. Pede a senha do `sudo` e leva de
-15 a 30 minutos.
+Ubuntu 26.04 (nativo ou WSL), g++ 15.2, CMake 4.2.3, Python 3.14,
+ns-3.48 no commit `d2add90b452d600cfb4859baed8e9ea633519447`.
+Bibliotecas em `requirements.txt`; registro em `ambiente.txt`.
+No Windows, abra `wsl -d Ubuntu`. Comandos seguintes em Bash:
 
 ```bash
+cd /mnt/d/Faculdade/Redes-moveis/Redes-Moveis
+# Somente se o ambiente não estiver instalado:
 bash scripts/setup-ns3.sh
-```
 
-### 2. Executar as simulações
+# 3 áreas × 3 protocolos × 4 velocidades × 20 runs = 720 simulações
+JOBS=12 bash scripts/run-area-experiments.sh
 
-Executa as 240 simulações (3 protocolos × 4 velocidades × 20 runs) em paralelo,
-em cerca de 4 minutos com 16 núcleos. Cada execução imprime uma linha com o
-resultado e grava seus arquivos em `data/raw/execucoes/`.
-
-```bash
-bash scripts/run-experiments.sh
-```
-
-### 3. Medir alcance do rádio e conectividade
-
-Duas análises de apoio, que ajudam a explicar as perdas:
-
-```bash
-# Alcance: entrega entre dois nós parados, de 1 a 400 m, a 7,5, 12 e 16 dBm
-bash scripts/range-test.sh
-
-# Trajetórias dos nós de cada velocidade e run (iguais para os 3 protocolos)
-bash scripts/mobility-traces.sh
-
-# Fração do tempo em que cada par origem-destino tem algum caminho possível
-~/.venvs/redes-moveis/bin/python scripts/connectivity.py --alcance 138
-```
-
-`range-test.sh` grava `data/raw/alcance/alcance.csv`. Com a potência do
-cenário (7,5 dBm), a entrega é de 100% até 138 m e nula a partir de 139 m.
-`connectivity.py` usa esse alcance para montar, a cada 0,5 s do período de
-tráfego, o grafo de nós ao alcance uns dos outros, e grava
-`data/processed/conectividade.csv`. Essa conectividade é uma referência
-superior para o PDR: sem caminho, nenhum protocolo consegue entregar. A
-exceção é o AODV, que retém pacotes durante a busca de rota e pode
-entregá-los quando o caminho reaparece.
-
-### 4. Gerar estatísticas e gráficos
-
-Consolida as execuções em `data/processed/`, gera os gráficos em `figures/` e
-imprime uma tabela com as médias. Se `data/processed/conectividade.csv`
-existir, o gráfico de PDR inclui a curva de conectividade.
-
-```bash
+# Base revisado: quatro métricas × velocidade e comparativo a 10 m/s
 ~/.venvs/redes-moveis/bin/python scripts/analyze.py
+# Compara áreas e exige matriz completa com parâmetros fixos corretos
+~/.venvs/redes-moveis/bin/python scripts/compare-levels.py
+# Audita CSVs contra XMLs do FlowMonitor
+~/.venvs/redes-moveis/bin/python scripts/validate-area.py
+# Atualiza números e figuras do fonte SBC em article/
+~/.venvs/redes-moveis/bin/python scripts/prepare-article.py
 ```
 
-A opção `--comparar-velocidade` escolhe a velocidade do gráfico comparativo
-entre protocolos (padrão: 10 m/s):
+O lote recompila o cenário e grava `comandos.txt` com commit e argumentos
+por run. Reexecutar substitui os arquivos das campanhas de área. Os resultados
+antigos não são reutilizados. Testes rápidos devem usar uma pasta própria:
 
 ```bash
-~/.venvs/redes-moveis/bin/python scripts/analyze.py --comparar-velocidade 20
+PROTOCOLS=AODV SPEEDS=10 RUNS=1 OUT_DIR=tmp/teste bash scripts/run-experiments.sh
+~/ns-3/ns3 run "manet-routing --protocol=OLSR --area=500 --speed=10 --run=3 --outDir=/tmp/manet-teste"
 ```
 
-As simulações são determinísticas: executar os passos 2 a 4 novamente produz
-arquivos idênticos aos versionados no repositório.
+`run-experiments.sh` sozinho executa o base revisado de 500 m. Aceita
+`PROTOCOLS`, `SPEEDS`, `RUNS` (20), `SEED` (1), `PAUSE` (0), `JOBS`,
+`NS3_DIR`, `OUT_DIR` e `EXTRA_ARGS`. Não use um lote parcial na comparação final.
 
-### 5. Variável extra
+## Parâmetros controlados
 
-Os comandos da potência de transmissão estão na seção
-[Variável extra do grupo](#variável-extra-do-grupo-potência-de-transmissão).
-
-## Cenário simulado
-
-| Parâmetro | Valor |
+| Parâmetro | Configuração |
 |---|---|
-| Nós | 20 |
-| Área | 500 × 500 m |
-| Rádio | IEEE 802.11b ad hoc, 11 Mb/s (DSSS), taxa fixa (ConstantRateWifiManager) |
-| Propagação | Friis, atraso de propagação constante |
-| Potência de transmissão | 7,5 dBm |
-| Mobilidade | RandomWaypointMobilityModel, velocidade constante, pausa 0 s |
+| Nós / lado da área | 20 / 300, 500 e 700 m |
+| Densidade nominal | 222,2, 80,0 e 40,8 nós/km² |
+| Rádio | IEEE 802.11b ad hoc, DSSS 11 Mb/s, taxa fixa |
+| Canal / potência | 1, 2,412 GHz, 22 MHz / 16 dBm, um nível fixo |
+| Ganhos TX/RX / altura | 0 dB / 1,5 m constante |
+| Propagação | Log-distance, n = 2,7, d0 = 1 m, L0 = 40,0953 dB |
+| Atraso de propagação | Distância / velocidade da luz |
+| Mobilidade | Random Waypoint, velocidade constante, pausa zero |
 | Velocidades | 1, 5, 10 e 20 m/s |
-| Protocolos | AODV, OLSR, DSDV |
-| Tráfego | 4 fluxos UDP (OnOff sempre ligado), 32768 b/s por fluxo, pacotes de 1024 bytes |
-| Pares de fluxo | nó `i + 4` envia para o nó `i` (i = 0..3) |
-| Período de tráfego | cada fluxo começa em instante sorteado entre 20 s e 21 s e transmite por 90 s |
-| Tempo de simulação | 120 s |
-| Repetições | 20 runs por configuração (seed = 1, run = 1..20) |
+| Tráfego | 4 fluxos UDP OnOff ativos, 32768 bit/s por fluxo |
+| Pares / pacote | i+4 envia a i, i=0..3 / 1024 bytes de aplicação |
+| Duração | 120 s; fontes por 90 s, início sorteado em [20,21) s |
+| Repetições | Seed 1, runs 1..20 |
+| Ajustes | ARP DeadTimeout 1 s; FlowMonitor MaxPerHopDelay 120 s |
 
-### Sementes
+Para a mesma área, velocidade e run, os protocolos recebem as mesmas
+trajetórias e inícios de tráfego. Entre áreas, trajetórias físicas diferem.
+Variar área com N fixo muda densidade, distâncias e tempos de travessia.
+20 s de aquecimento não garantem estacionariedade do Random Waypoint.
 
-O ns-3 gera números aleatórios a partir de uma *seed* e de um número de *run*.
-Seguindo a recomendação da documentação do ns-3, a seed é fixa (`--seed=1`) e
-cada repetição usa um run diferente (`--run=1` a `--run=20`), o que garante
-sequências aleatórias independentes. Com a mesma seed e o mesmo run, os três
-protocolos recebem exatamente o mesmo padrão de mobilidade, então a comparação
-entre eles é pareada. Os comandos exatos ficam em
-`data/raw/execucoes/comandos.txt`.
-
-### Ajustes de implementação
-
-Três ajustes foram adotados, todos justificados também no artigo:
-
-| Ajuste | Motivo |
-|---|---|
-| Cada fluxo começa em instante sorteado entre 20 s e 21 s (`--startJitter=1`), como no exemplo original do ns-3 | Com os quatro fluxos começando no mesmo instante, os pedidos ARP iniciais colidiam e fluxos inteiros deixavam de ser entregues |
-| Um vizinho sem resposta ARP fica marcado como inalcançável por 1 s (`--arpDeadTimeout=1`), e não pelos 100 s padrão do ns-3 | Com mobilidade, um vizinho que sai do alcance pode voltar em poucos segundos; com 100 s, o nó continuava descartando pacotes para ele mesmo com o caminho disponível |
-| O limite `MaxPerHopDelay` do FlowMonitor passou de 10 s para a duração da simulação | Pacotes que esperaram mais de 10 s por uma rota eram entregues, mas ficavam fora das estatísticas do FlowMonitor |
-
-Os dois primeiros ajustes podem ser desfeitos pela linha de comando
-(`--startJitter=0 --arpDeadTimeout=100`) para comparação.
+Para d > 1 m: `L(d) = L0 + 10 n log10(d / 1 m)`, em dB, com
+`L0 = 20 log10(4 pi f / c)` e f = 2,412 GHz. O n = 2,7 representa uma
+hipótese de crescimento de perda maior que no espaço livre (n = 2).
+Para d <= 1 m, o código do ns-3.48 instalado mantém L = L0.
+Na investigação adicional somente a área muda: não se troca n nem o rádio.
+Outros expoentes devem ser investigados em uma campanha de sensibilidade separada.
 
 ## Métricas
 
-Calculadas apenas sobre os fluxos de dados (porta UDP 9). O FlowMonitor também
-registra o tráfego de controle dos protocolos, que é ignorado.
-
-| Métrica | Definição |
+| Campo/métrica | Definição |
 |---|---|
-| Pacotes gerados | pacotes que as aplicações deveriam enviar no período de tráfego |
-| PDR (%) | recebidos / gerados × 100 |
-| Vazão (Mbps) | bytes de aplicação recebidos × 8 / 90 s |
-| Atraso médio (ms) | Σ delaySum / Σ pacotes recebidos, somando os 4 fluxos (FlowMonitor) |
-| Jitter médio (ms) | Σ jitterSum / Σ (pacotes recebidos − 1), somando os 4 fluxos; jitterSum acumula \|atraso(k) − atraso(k−1)\| entre pacotes consecutivos de um fluxo (FlowMonitor) |
+| generatedPackets | Nome histórico da demanda nominal: 4 × 359 = 1436 oportunidades de envio; não contador real de geração do OnOff |
+| txPackets | Envios efetivos no trace Tx da aplicação |
+| rxPackets | Pacotes recebidos, sem duplicatas |
+| lostPackets | Demanda menos recebidos; difere do lostPackets interno do FlowMonitor |
+| PDR | 100 × recebidos / demanda nominal, incluindo demanda não atendida por falta de rota |
+| Vazão | Bytes de aplicação recebidos até 120 s × 8 / 90 s / 10⁶, em Mbps |
+| Atraso | Σ delaySum / Σ rxPackets dos fluxos de dados, em ms |
+| Jitter | Σ jitterSum / Σ max(rxPackets − 1, 0) por fluxo, em ms |
+| meanHops | 1 + Σ timesForwarded / Σ rxPackets dos pacotes entregues |
 
-Atraso e jitter consideram todos os pacotes entregues, inclusive os que
-esperaram na fila do protocolo durante a busca de rota: o limite
-`MaxPerHopDelay` do FlowMonitor, de 10 s por padrão, foi ampliado para a
-duração da simulação.
+Filtram-se dados destinados à porta UDP 9. O atraso começa na observação IP,
+sem espera anterior na aplicação. PDR/vazão incluem entregas durante a drenagem
+até 120 s; filas podem não esvaziar. Atraso e jitter são condicionados à entrega.
+Sem recepção, atraso é indefinido; sem pares, jitter é indefinido (NaN na análise).
 
-O PDR usa os pacotes **gerados**, e não os transmitidos. No OLSR, quando a
-origem ainda não tem rota, o `OnOffApplication` não consegue enviar e retém o
-pacote. Esses pacotes nunca aparecem no FlowMonitor e, se fossem ignorados, o
-PDR do OLSR ficaria artificialmente alto. AODV e DSDV armazenam os pacotes
-enquanto procuram rota, então neles gerados = transmitidos.
+Estatísticas: n, média, desvio amostral, mínimo, máximo e IC t de 95% entre
+runs. Pacotes não são réplicas independentes. Barras de erro não são teste de
+significância entre protocolos. A nota metodológica detalha a interpretação.
 
-## Executar uma simulação isolada
+## Argumentos do cenário
 
-```bash
-~/ns-3/ns3 run "manet-routing --protocol=OLSR --speed=10 --run=3 --outDir=/tmp/teste"
-```
-
-O resultado é impresso na tela e gravado em `/tmp/teste/resumo.csv`, junto com
-`vazao-por-segundo.csv` e `flowmon.xml`. Parâmetros aceitos:
-
-| Parâmetro | Padrão | Descrição |
+| Argumento | Padrão | Unidade/uso |
 |---|---|---|
-| `--protocol` | AODV | AODV, OLSR ou DSDV |
-| `--speed` | 1 | velocidade dos nós (m/s) |
-| `--pause` | 0 | tempo de pausa (s) |
-| `--nodes` | 20 | quantidade de nós |
-| `--flows` | 4 | quantidade de fluxos UDP |
-| `--area` | 500 | lado da área quadrada (m) |
-| `--packetSize` | 1024 | tamanho do pacote (bytes) |
-| `--dataRate` | 32768bps | taxa de cada fluxo |
-| `--txPower` | 7.5 | potência de transmissão (dBm) |
-| `--seed` / `--run` | 1 / 1 | gerador de números aleatórios |
-| `--startJitter` | 1 | cada fluxo começa em instante sorteado entre 20 s e 20 s + `startJitter` |
-| `--arpDeadTimeout` | 1 | tempo (s) em que um vizinho sem resposta ARP fica marcado como inalcançável |
-| `--outDir` | . | pasta de saída |
-| `--traceMobility` | false | grava a trajetória dos nós em `mobilidade.mob` |
-| `--histograms` | false | inclui histogramas de atraso e jitter no `flowmon.xml` |
-| `--verbose` | false | imprime cada pacote recebido |
+| `--protocol` | AODV | AODV, OLSR, DSDV |
+| `--speed`, `--pause` | 1, 0 | m/s e s |
+| `--area` | 500 | Lado em m |
+| `--nodes`, `--flows` | 20, 4 | Nós e pares UDP |
+| `--txPower` | 16 | dBm, faixa de projeto 13–20 |
+| `--propagation` | LogDistance | Friis disponível para referência separada em 2,412 GHz |
+| `--pathLossExponent` | 2.7 | n >= 2, aplicado apenas no LogDistance |
+| `--antennaHeight` | 1.5 | Z comum em m, sem topografia |
+| `--packetSize`, `--dataRate` | 1024, 32768bps | Carga |
+| `--seed`, `--run` | 1, 1 | Aleatoriedade |
+| `--startJitter`, `--arpDeadTimeout` | 1, 1 | Segundos |
+| `--outDir` | . | Pasta de saída |
+| `--traceMobility`, `--histograms`, `--verbose` | false | Diagnósticos |
 
-## Variável extra do grupo: potência de transmissão
+Frequência fixa no código, coerente com o canal 1.
 
-Segunda etapa experimental, separada do experimento-base. Todos os parâmetros
-do cenário-base são mantidos (protocolos, velocidades, runs e seeds), e só a
-potência de transmissão muda:
+## Arquivos da revisão
 
-| Nível | Alcance medido | Pasta de dados |
-|---|---|---|
-| 7,5 dBm (base) | 138 m | `data/raw/execucoes/` |
-| 12 dBm | 232 m | `data/raw/potencia-12dbm/` |
-| 16 dBm | 367 m | `data/raw/potencia-16dbm/` |
-
-```bash
-# Simulações dos dois níveis adicionais (o nível 7,5 dBm é o experimento-base)
-EXTRA_ARGS="--txPower=12" OUT_DIR=data/raw/potencia-12dbm bash scripts/run-experiments.sh
-EXTRA_ARGS="--txPower=16" OUT_DIR=data/raw/potencia-16dbm bash scripts/run-experiments.sh
-
-# Conectividade com o alcance de cada nível (mesmas trajetórias do base)
-~/.venvs/redes-moveis/bin/python scripts/connectivity.py --alcance 232 \
-    --out data/processed/potencia-12dbm/conectividade.csv
-~/.venvs/redes-moveis/bin/python scripts/connectivity.py --alcance 367 \
-    --out data/processed/potencia-16dbm/conectividade.csv
-
-# Estatísticas dos três níveis e gráficos com um painel por potência
-~/.venvs/redes-moveis/bin/python scripts/compare-levels.py
+```text
+src/manet-routing.cc              cenário revisado
+src/range-test.cc                 diagnóstico de dois nós com o mesmo rádio
+scripts/run-area-experiments.sh   lote das três áreas
+scripts/analyze.py                análise do base
+scripts/compare-levels.py         comparação das áreas e verificação da matriz
+scripts/validate-area.py          auditoria de contadores e métricas
+scripts/prepare-article.py        números e figuras do artigo a partir dos CSVs
+ data/raw/area-{300,500,700}m/     CSV/XML por run e comandos
+ data/processed/area-500m/        estatísticas do base
+ data/processed/area/             estatísticas das áreas e validação
+figures/area-500m/                quatro curvas e comparativo a 10 m/s
+figures/area/                     quatro métricas com painéis por área
+docs/revisao-metodologica.md      hipóteses e limites
+article/                         fonte SBC e figuras revisados
+slides/                          apresentação editável e fontes de geração
 ```
 
-Saídas em `data/processed/potencia/` e `figures/potencia/`.
+Os PDFs atuais na raiz são [Artigo_Redes_móveis.pdf](Artigo_Redes_móveis.pdf)
+e [Slides Redes.pdf](Slides%20Redes.pdf), ambos referentes à campanha por área.
+A apresentação [editável em PowerPoint](slides/Slides-Redes-MANET.pptx)
+contém gráficos e tabelas nativos. Sua reprodução está em [slides/README.md](slides/README.md).
 
-## Gráficos
+O artigo, os slides e o pacote Overleaf ficam também em `../Entrega/`. No diretório
+`article/`, compile com `pdflatex main.tex`, `bibtex main` e duas execuções
+adicionais de `pdflatex main.tex`. No Windows: `compilar.bat --sem-pausa`.
 
-| Gráfico | Arquivo em `figures/` |
-|---|---|
-| PDR × velocidade (com a curva de conectividade) | `pdr-vs-velocidade` |
-| Vazão × velocidade | `vazao-vs-velocidade` |
-| Atraso × velocidade | `atraso-vs-velocidade` |
-| Jitter × velocidade | `jitter-vs-velocidade` |
-| Comparativo agregado entre AODV, OLSR e DSDV a 10 m/s | `comparativo-10ms` |
-| Variável extra: cada métrica × velocidade, um painel por potência | `potencia/<métrica>-por-potencia` |
+Diagnóstico opcional: `bash scripts/range-test.sh`; saída isolada em
+`data/raw/alcance-revisado/alcance.csv`. Não representa cobertura real.
+O script antigo `connectivity.py` não entra na análise revisada.
 
-Cada gráfico existe em PDF (usado no artigo) e em PNG. As linhas mostram a
-média das 20 runs e as barras, o intervalo de confiança de 95%.
-
-O artigo, no modelo da SBC, é entregue em PDF e usa os gráficos em PDF desta
-pasta.
-
-## Variações do experimento
-
-`run-experiments.sh` aceita variáveis de ambiente antes do comando:
-
-| Variável | Padrão | Descrição |
-|---|---|---|
-| `PROTOCOLS` | `AODV OLSR DSDV` | protocolos simulados |
-| `SPEEDS` | `1 5 10 20` | velocidades (m/s) |
-| `PAUSE` | `0` | tempo de pausa (s) |
-| `RUNS` | `20` | repetições por configuração (runs 1..RUNS) |
-| `SEED` | `1` | seed do gerador de números aleatórios |
-| `EXTRA_ARGS` | vazio | outros parâmetros do simulador, ex.: `--nodes=40` |
-| `OUT_DIR` | `data/raw/execucoes` | pasta de saída |
-| `JOBS` | nº de núcleos | simulações em paralelo |
-
-Para uma variação, use pastas próprias de saída, sem sobrescrever o
-experimento principal. Exemplo com 40 nós:
-
-```bash
-# Simulações: mesmas velocidades, protocolos e runs, agora com 40 nós
-EXTRA_ARGS="--nodes=40" OUT_DIR=data/raw/nos-40 bash scripts/run-experiments.sh
-
-# Estatísticas e gráficos da variação, em pastas separadas
-~/.venvs/redes-moveis/bin/python scripts/analyze.py \
-    --raw data/raw/nos-40 --processed data/processed/nos-40 --figures figures/nos-40
-```
-
-Outros exemplos: `PAUSE=10` (pausa de 10 s), `EXTRA_ARGS="--txPower=15"`
-(potência de 15 dBm), `SPEEDS="5" RUNS=3` (teste rápido).
-
-## Estrutura
-
-```
-src/manet-routing.cc        cenário de simulação (C++)
-src/range-test.cc           teste de alcance do rádio (dois nós parados)
-scripts/setup-ns3.sh        instalação do ambiente
-scripts/run-experiments.sh  campanha de simulações
-scripts/range-test.sh       varredura de alcance por distância e potência
-scripts/mobility-traces.sh  trajetórias dos nós por velocidade e run
-scripts/connectivity.py     conectividade dos pares origem-destino
-scripts/analyze.py          estatísticas e gráficos
-scripts/compare-levels.py   comparação dos níveis de potência (variável extra)
-requirements.txt            bibliotecas Python
-data/raw/execucoes/         uma pasta por execução:
-    resumo.csv                parâmetros e métricas da execução
-    vazao-por-segundo.csv     vazão recebida a cada segundo
-    flowmon.xml               saída bruta do FlowMonitor
-data/raw/alcance/           entrega por distância e potência
-data/raw/mobilidade/        trajetórias (v<velocidade>_p<pausa>_r<run>.mob)
-data/processed/
-    execucoes.csv             todas as execuções em uma tabela
-    resumo-estatistico.csv    n, média, desvio-padrão, mínimo, máximo e IC 95%
-    conectividade.csv         % do tempo com caminho, por par, velocidade e run
-data/raw/potencia-*dbm/     execuções dos níveis de potência 12 e 16 dBm
-data/processed/potencia*/   estatísticas e conectividade da variável extra
-figures/                    gráficos (PDF para o artigo, PNG para visualização)
-figures/potencia/           gráficos da variável extra
-ambiente.txt                versões do sistema, compilador, Python e ns-3 usados
-```
-
-## Origem do código
-
-`src/manet-routing.cc` é uma adaptação do exemplo
-`examples/routing/manet-routing-compare.cc` do ns-3 (licença GPL-2.0), com os
-parâmetros do enunciado, parâmetros de linha de comando, controle de sementes e
-cálculo das métricas por execução.
+O código deriva de `examples/routing/manet-routing-compare.cc` do ns-3,
+licença GPL-2.0. O histórico Git identifica a versão publicada; o manifesto
+em `docs/manifesto-revisao.json` registra os hashes dos arquivos da revisão.

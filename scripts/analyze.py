@@ -66,6 +66,8 @@ def load_runs(raw_dir: Path) -> pd.DataFrame:
     df = pd.concat((pd.read_csv(f) for f in files), ignore_index=True)
     # Sem pacotes recebidos, atraso e jitter não são definidos.
     df.loc[df["rxPackets"] == 0, ["delayMs", "jitterMs"]] = np.nan
+    if "jitterSamples" in df:
+        df.loc[df["jitterSamples"] == 0, "jitterMs"] = np.nan
     df["protocol"] = pd.Categorical(df["protocol"], PROTOCOLS, ordered=True)
     return df.sort_values(PARAM_COLUMNS + ["run"]).reset_index(drop=True)
 
@@ -78,15 +80,19 @@ def ci95(values: pd.Series) -> float:
 
 
 def summarize(df: pd.DataFrame) -> pd.DataFrame:
-    grouped = df.groupby(PARAM_COLUMNS, observed=True)
+    columns = PARAM_COLUMNS + [c for c in
+        ["propagation", "pathLossExponent", "frequencyHz", "referenceLossDb",
+         "antennaHeight", "startJitter", "arpDeadTimeout"] if c in df]
+    grouped = df.groupby(columns, observed=True)
     rows = []
     for key, group in grouped:
-        row = dict(zip(PARAM_COLUMNS, key))
+        row = dict(zip(columns, key))
         row["n"] = len(group)
         for col in PACKET_COLUMNS:
             row[f"{col}_mean"] = group[col].mean()
         for metric in METRICS:
             values = group[metric]
+            row[f"{metric}_n_valid"] = values.notna().sum()
             row[f"{metric}_mean"] = values.mean()
             row[f"{metric}_std"] = values.std(ddof=1)
             row[f"{metric}_min"] = values.min()
@@ -159,9 +165,9 @@ def plot_comparison(summary: pd.DataFrame, speed: float, fig_dir: Path) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--raw", type=Path, default=REPO / "data/raw/execucoes")
-    parser.add_argument("--processed", type=Path, default=REPO / "data/processed")
-    parser.add_argument("--figures", type=Path, default=REPO / "figures")
+    parser.add_argument("--raw", type=Path, default=REPO / "data/raw/area-500m")
+    parser.add_argument("--processed", type=Path, default=REPO / "data/processed/area-500m")
+    parser.add_argument("--figures", type=Path, default=REPO / "figures/area-500m")
     parser.add_argument("--comparar-velocidade", type=float, default=10,
                         help="velocidade (m/s) do gráfico comparativo agregado")
     args = parser.parse_args()

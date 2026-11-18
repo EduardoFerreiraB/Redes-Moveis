@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "runs": 720,
+  "configurations": 36,
+  "areas": [
+    300,
+    500,
+    700
+  ],
+  "runs_per_configuration": 20,
+  "xmls_checked": 720,
+  "checks": [
+    "complete factorial matrix",
+    "fixed radio/environment",
+    "application vs FlowMonitor receivers",
+    "nominal demand and losses",
+    "PDR and throughput",
+    "delay and jitter from XML",
+    "delivered hops from XML"
+  ],
+  "runs_without_rx": 6,
+  "runs_without_jitter_samples": 6
+}

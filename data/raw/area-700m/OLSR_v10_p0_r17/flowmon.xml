@@ -1,0 +1,26 @@
+<?xml version="1.0" ?>
+<FlowMonitor>
+  <FlowStats>
+    <Flow flowId="1" timeFirstTxPacket="+2.04329e+10ns" timeFirstRxPacket="+2.24452e+10ns" timeLastTxPacket="+1.09933e+11ns" timeLastRxPacket="+1.08698e+11ns" delaySum="+1.3082e+08ns" jitterSum="+5.02017e+07ns" lastDelay="+1.54119e+07ns" maxDelay="+1.70323e+07ns" minDelay="+2.28167e+06ns" txBytes="127292" rxBytes="34716" txPackets="121" rxPackets="33" lostPackets="5" timesForwarded="42">
+      <packetsDropped reasonCode="0" number="5" />
+      <bytesDropped reasonCode="0" bytes="5260" />
+    </Flow>
+    <Flow flowId="2" timeFirstTxPacket="+2.10544e+10ns" timeFirstRxPacket="+2.10743e+10ns" timeLastTxPacket="+1.10554e+11ns" timeLastRxPacket="+1.06308e+11ns" delaySum="+2.46992e+08ns" jitterSum="+1.3259e+08ns" lastDelay="+3.52895e+06ns" maxDelay="+2.65307e+07ns" minDelay="+1.03409e+06ns" txBytes="223024" rxBytes="96784" txPackets="212" rxPackets="92" lostPackets="0" timesForwarded="63">
+    </Flow>
+    <Flow flowId="3" timeFirstTxPacket="+2.52672e+10ns" timeFirstRxPacket="+2.52818e+10ns" timeLastTxPacket="+1.10267e+11ns" timeLastRxPacket="+1.10268e+11ns" delaySum="+2.5568e+09ns" jitterSum="+2.08418e+09ns" lastDelay="+1.0341e+06ns" maxDelay="+1.00778e+09ns" minDelay="+1.03408e+06ns" txBytes="174632" rxBytes="149384" txPackets="166" rxPackets="142" lostPackets="0" timesForwarded="78">
+    </Flow>
+  </FlowStats>
+  <Ipv4FlowClassifier>
+    <Flow flowId="3" sourceAddress="10.1.1.5" destinationAddress="10.1.1.1" protocol="17" sourcePort="49153" destinationPort="9">
+      <Dscp value="0x0" packets="166" />
+    </Flow>
+    <Flow flowId="2" sourceAddress="10.1.1.6" destinationAddress="10.1.1.2" protocol="17" sourcePort="49153" destinationPort="9">
+      <Dscp value="0x0" packets="212" />
+    </Flow>
+    <Flow flowId="1" sourceAddress="10.1.1.8" destinationAddress="10.1.1.4" protocol="17" sourcePort="49153" destinationPort="9">
+      <Dscp value="0x0" packets="121" />
+    </Flow>
+  </Ipv4FlowClassifier>
+  <Ipv6FlowClassifier>
+  </Ipv6FlowClassifier>
+</FlowMonitor>

@@ -1,0 +1,19 @@
+{
+  "ns3": "3.48",
+  "wifi": "802.11b",
+  "channel": 1,
+  "frequency_hz": 2412000000,
+  "channel_width_mhz": 22,
+  "tx_power_dbm": 16,
+  "tx_rx_gain_db": 0,
+  "propagation": "LogDistance",
+  "exponent": 2.7,
+  "reference_distance_m": 1,
+  "reference_loss_db": 40.0953,
+  "antenna_height_m": 1.5,
+  "udp_packet_bytes": 1024,
+  "packets_per_distance": 200,
+  "distances_m": "1..400, step 1",
+  "command": "bash scripts/range-test.sh",
+  "interpretation": "Diagnóstico sem mobilidade ou contenção; não equivale a cobertura de um local real."
+}
