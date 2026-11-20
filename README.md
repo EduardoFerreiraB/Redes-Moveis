@@ -1,7 +1,7 @@
 # Mobilidade e área em MANETs com perdas ambientais
 
 Redes Móveis, IFG Câmpus Inhumas, 2026/2. Eduardo Ferreira de Brito Matos,
-Pedro Américo Rocha e Thiago Ferreira. **Revisão: 18/11/2026.**
+Pedro Américo Rocha e Thiago Ferreira. **Revisão: 19/11/2026.**
 
 Comparamos AODV, OLSR e DSDV variando a velocidade. A variável adicional
 agora é a **área**, com rádio fixo e perda ambiental média log-distance.
@@ -49,6 +49,8 @@ JOBS=12 bash scripts/run-area-experiments.sh
 ~/.venvs/redes-moveis/bin/python scripts/compare-levels.py
 # Audita CSVs contra XMLs do FlowMonitor
 ~/.venvs/redes-moveis/bin/python scripts/validate-area.py
+# Confere o PHY/MAC e a perda de propagação efetivamente instalados nos dois programas
+python3 scripts/validate-radio.py
 # Atualiza números e figuras do fonte SBC em article/
 ~/.venvs/redes-moveis/bin/python scripts/prepare-article.py
 ```
@@ -140,6 +142,15 @@ significância entre protocolos. A nota metodológica detalha a interpretação.
 
 Frequência fixa no código, coerente com o canal 1.
 
+`validate-radio.py` compila cópias instrumentadas temporárias dos dois programas
+e inspeciona os objetos instalados por `wifi.Install`: padrão 802.11b, MAC ad hoc,
+canal 1, 2,412 GHz, 22 MHz, potência de 16 dBm, ganhos de 0 dB e log-distance
+com n = 2,7. Compara a potência recebida calculada pelo ns-3 em sete distâncias
+com um cálculo independente e grava `data/processed/area/validacao-radio.json`.
+As cópias encerram antes do tráfego; os dados da campanha não são substituídos.
+Essa verificação confirma a coerência do modelo, não a calibração de um rádio
+comercial ou de um ambiente real.
+
 ## Arquivos da revisão
 
 ```text
@@ -149,6 +160,7 @@ scripts/run-area-experiments.sh   lote das três áreas
 scripts/analyze.py                análise do base
 scripts/compare-levels.py         comparação das áreas e verificação da matriz
 scripts/validate-area.py          auditoria de contadores e métricas
+scripts/validate-radio.py         verifica o rádio e a propagação em execução
 scripts/prepare-article.py        números e figuras do artigo a partir dos CSVs
  data/raw/area-{300,500,700}m/     CSV/XML por run e comandos
  data/processed/area-500m/        estatísticas do base

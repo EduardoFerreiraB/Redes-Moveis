@@ -1,0 +1,71 @@
+{
+  "status": "PASS",
+  "source_sha256": {
+    "src/manet-routing.cc": "ae07f2b6952dfe2aae3c0043521ec52c632563111aa4b47d94c5af1ca5160958",
+    "src/range-test.cc": "ce413749b906dfbcb8b7c165551834010f656167376a9a7db319db0459890b70"
+  },
+  "ns3_commit": "d2add90b452d600cfb4859baed8e9ea633519447",
+  "distances_m": [
+    0.5,
+    1.0,
+    10.0,
+    100.0,
+    139.0,
+    140.0,
+    500.0
+  ],
+  "programs": {
+    "manet-routing.cc": {
+      "devices_checked": 20,
+      "configuration": {
+        "node": 0,
+        "frequencyMHz": 2412,
+        "channelNumber": 1,
+        "channelWidthMHz": 22,
+        "exponent": 2.7,
+        "referenceLossDb": 40.0953292912456,
+        "referenceDistanceM": 1,
+        "txPowerDbm": 16,
+        "txPowerEndDbm": 16,
+        "txGainDb": 0,
+        "rxGainDb": 0,
+        "txPowerLevels": 1,
+        "rxPowerDbm": [
+          -24.0953292912456,
+          -24.0953292912456,
+          -51.0953292912456,
+          -78.0953292912456,
+          -81.9567288981062,
+          -82.0407862545581,
+          -96.9675194083182
+        ]
+      }
+    },
+    "range-test.cc": {
+      "devices_checked": 2,
+      "configuration": {
+        "node": 0,
+        "frequencyMHz": 2412,
+        "channelNumber": 1,
+        "channelWidthMHz": 22,
+        "exponent": 2.7,
+        "referenceLossDb": 40.0953292912456,
+        "referenceDistanceM": 1,
+        "txPowerDbm": 16,
+        "txPowerEndDbm": 16,
+        "txGainDb": 0,
+        "rxGainDb": 0,
+        "txPowerLevels": 1,
+        "rxPowerDbm": [
+          -24.0953292912456,
+          -24.0953292912456,
+          -51.0953292912456,
+          -78.0953292912456,
+          -81.9567288981062,
+          -82.0407862545581,
+          -96.9675194083182
+        ]
+      }
+    }
+  }
+}

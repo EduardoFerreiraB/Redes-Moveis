@@ -1,4 +1,4 @@
-# Revisão metodológica de 17/11/2026
+# Revisão metodológica de 19/11/2026
 
 ## Decisão adotada
 
@@ -102,6 +102,27 @@ O teste auxiliar com dois nós percorreu 1 a 400 m a 16 dBm, 200 pacotes por
 distância. Houve entrega de 100% até 139 m e zero a partir de 140 m nesse
 diagnóstico sem mobilidade ou contenção. Isso não representa cobertura real
 nem limite formal do PDR da MANET.
+
+### Conferência do rádio em 19/11/2026
+
+Foi mantida a decisão de usar log-distance com n = 2,7 e área como variável
+adicional. O script `scripts/validate-radio.py` verifica os objetos efetivamente
+instalados nos dois programas, por meio de cópias instrumentadas que encerram
+antes do tráfego. Foram conferidos os 20 dispositivos do cenário e os dois do
+teste de alcance: padrão 802.11b, MAC ad hoc, canal 1, 2,412 GHz, 22 MHz,
+16 dBm, ganhos de 0 dB e um único modelo log-distance.
+
+A perda de referência obtida foi 40,0953292912456 dB a 1 m. As potências
+recebidas calculadas pelo ns-3 em 0,5, 1, 10, 100, 139, 140 e 500 m coincidiram
+com o cálculo independente com tolerância absoluta de 1e-9 dB. O resultado
+está em `data/processed/area/validacao-radio.json`, com hashes dos fontes e
+commit do ns-3. O teste confirma coerência matemática e de configuração;
+o expoente ambiental continua sendo uma hipótese, sem calibração de campo.
+
+Também foi repetido o teste de alcance nas 400 distâncias, mantendo a saída
+em `tmp/radio-check/alcance.csv`. O CSV foi idêntico byte a byte ao diagnóstico
+existente, confirmando 100% de entrega até 139 m e zero desde 140 m nessas
+condições. O registro está em `data/processed/area/validacao-alcance.json`.
 
 ## Referências técnicas
 
